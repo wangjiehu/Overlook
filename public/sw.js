@@ -3,12 +3,14 @@
 // Enables offline viewing of last data (localStorage + cached static shell + sample)
 // Works for GitHub Pages static deploy (relative paths + runtime caching for hashed assets)
 
-const CACHE_NAME = 'overlook-pwa-v1';
+const CACHE_NAME = 'overlook-pwa-v2';
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './favicon.svg',
+  './icon-192.png',
+  './icon-512.png',
   './sample-data.csv',
   './icons.svg'
 ];

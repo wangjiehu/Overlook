@@ -31,8 +31,8 @@ jobs:
         with:
           path: node_modules
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-      - name: Build
-        run: npm run build
+      - name: Verify
+        run: npm run verify
         env:
           CI: true
       - name: Upload artifact

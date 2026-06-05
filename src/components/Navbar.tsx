@@ -1,113 +1,82 @@
-import { BarChart3, User, Download, Upload, Sun, Moon, HelpCircle, Smartphone } from 'lucide-react'
-import { Dispatch, SetStateAction } from 'react'
+import { BarChart3, CalendarDays, Database, Gauge, Radar, Upload, UserRound } from 'lucide-react'
+import type { Dispatch, SetStateAction } from 'react'
+import type { ViewKey } from '../types'
 
 interface NavbarProps {
-  activeTab: string
-  setActiveTab: Dispatch<SetStateAction<'dashboard' | 'platforms' | 'insights' | 'accounts'>>
-  onExport: () => void
+  activeView: ViewKey
+  setActiveView: Dispatch<SetStateAction<ViewKey>>
   onImportClick: () => void
-  onDownloadSample: () => void
-  onClearImported: () => void
-  hasImported: boolean
-  onThemeToggle: () => void
-  onShowOnboarding?: () => void
-  // PWA install affordance (only shown when beforeinstallprompt available; Apple-like clean button)
-  showInstall?: boolean
+  onExportJson: () => void
+  onExportReport: () => void
   onInstall?: () => void
+  showInstall: boolean
 }
 
-export function Navbar({ activeTab, setActiveTab, onExport, onImportClick, onDownloadSample, onClearImported, hasImported, onThemeToggle, onShowOnboarding, showInstall, onInstall }: NavbarProps) {
-  const tabs = [
-    { key: 'dashboard' as const, label: '概览' },
-    { key: 'platforms' as const, label: '平台' },
-    { key: 'insights' as const, label: '洞察' },
-    { key: 'accounts' as const, label: '账号' },
-  ]
+const tabs: Array<{ key: ViewKey; label: string; icon: typeof Gauge }> = [
+  { key: 'overview', label: '总览', icon: Gauge },
+  { key: 'content', label: '内容库', icon: Database },
+  { key: 'planner', label: '计划', icon: CalendarDays },
+  { key: 'benchmarks', label: '对标', icon: Radar },
+  { key: 'accounts', label: '账号', icon: UserRound },
+]
 
-  // Determine theme icon (Sun for dark mode to switch to light, Moon for light)
-  const isDarkMode = typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-
+export function Navbar({
+  activeView,
+  setActiveView,
+  onImportClick,
+  onExportJson,
+  onExportReport,
+  onInstall,
+  showInstall,
+}: NavbarProps) {
   return (
-    <nav className="apple-nav" aria-label="主导航">
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 flex items-center justify-between min-h-14 h-14">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#007AFF] rounded-full flex items-center justify-center">
-            <BarChart3 className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <div className="font-semibold text-xl tracking-tight">Overlook</div>
-            <div className="text-[10px] text-secondary -mt-1">Creator Insights</div>
-          </div>
-        </div>
+    <header className="app-nav">
+      <div className="app-nav__inner">
+        <button className="brand-button" onClick={() => setActiveView('overview')} aria-label="回到总览">
+          <span className="brand-mark">
+            <BarChart3 size={18} />
+          </span>
+          <span>
+            <strong>Overlook</strong>
+            <small>Creator Ops</small>
+          </span>
+        </button>
 
-        <div className="flex items-center gap-1.5 text-sm overflow-x-auto pb-0.5 -mb-0.5 sm:overflow-visible" role="tablist">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              role="tab"
-              aria-selected={activeTab === tab.key}
-              aria-current={activeTab === tab.key ? 'page' : undefined}
-              className={`apple-btn px-3.5 py-1 text-sm rounded-full transition-all ${
-                activeTab === tab.key 
-                  ? 'bg-[#1D1D1F] text-white dark:bg-white dark:text-[#1D1D1F] shadow-sm' 
-                  : 'hover:bg-[#E8E8ED] dark:hover:bg-[#2C2C2E] text-[#1D1D1F] dark:text-[#F5F5F7]'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <nav className="tab-strip" aria-label="主视图">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const active = activeView === tab.key
+            return (
+              <button
+                key={tab.key}
+                className={active ? 'tab-button tab-button--active' : 'tab-button'}
+                onClick={() => setActiveView(tab.key)}
+                aria-current={active ? 'page' : undefined}
+              >
+                <Icon size={15} />
+                <span>{tab.label}</span>
+              </button>
+            )
+          })}
+        </nav>
 
-        <div className="flex items-center gap-1.5 sm:gap-3 overflow-x-auto max-w-[60%] sm:max-w-none -mr-1 sm:mr-0 pb-0.5">
-          <button onClick={onExport} className="apple-btn apple-btn-secondary text-sm hidden sm:inline-flex" aria-label="导出报告">
-            <Download className="w-4 h-4" /> 导出报告
+        <div className="nav-actions">
+          <button className="icon-button" onClick={onImportClick} title="导入 CSV" aria-label="导入 CSV">
+            <Upload size={16} />
           </button>
-          <button onClick={onImportClick} className="apple-btn apple-btn-secondary text-sm hidden md:inline-flex" aria-label="导入CSV数据">
-            <Upload className="w-4 h-4" /> 导入CSV
+          <button className="action-button action-button--ghost" onClick={onExportJson}>
+            JSON
           </button>
-          <button onClick={onDownloadSample} className="apple-btn apple-btn-ghost text-xs sm:text-sm px-2 sm:px-3" aria-label="下载示例CSV">
-            示例CSV
+          <button className="action-button" onClick={onExportReport}>
+            报告
           </button>
-          {hasImported && (
-            <button onClick={onClearImported} className="apple-btn apple-btn-ghost text-xs sm:text-sm text-[#FF3B30]" aria-label="清除导入的数据">
-              清除
-            </button>
-          )}
-          {onShowOnboarding && (
-            <button 
-              onClick={onShowOnboarding} 
-              className="apple-btn apple-btn-ghost p-1.5 sm:p-2"
-              aria-label="新手引导"
-              title="新手引导 / 重新打开教程"
-            >
-              <HelpCircle className="w-4 h-4" />
-            </button>
-          )}
-          {/* PWA Install button - only when beforeinstallprompt captured; clean Apple HIG style */}
           {showInstall && onInstall && (
-            <button 
-              onClick={onInstall} 
-              className="apple-btn apple-btn-primary text-sm hidden sm:inline-flex items-center gap-1.5"
-              aria-label="安装 Overlook 到桌面或主屏幕"
-              title="安装到桌面/主屏（PWA）— 支持 iOS/Android 添加到主屏，离线可用"
-            >
-              <Smartphone className="w-4 h-4" /> 安装到桌面/主屏
+            <button className="action-button action-button--install" onClick={onInstall}>
+              安装
             </button>
           )}
-          <button 
-            onClick={onThemeToggle} 
-            className="apple-btn apple-btn-secondary p-1.5 sm:p-2"
-            aria-label={isDarkMode ? '切换到浅色模式' : '切换到深色模式'}
-            title={isDarkMode ? '切换到浅色模式 (Apple HIG)' : '切换到深色模式 (Apple HIG)'}
-          >
-            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
-          <div className="w-7 h-7 sm:w-8 sm:h-8 bg-[#E8E8ED] dark:bg-[#2C2C2E] rounded-full flex items-center justify-center shrink-0" aria-hidden="true">
-            <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          </div>
         </div>
       </div>
-    </nav>
+    </header>
   )
 }

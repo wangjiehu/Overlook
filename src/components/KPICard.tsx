@@ -1,25 +1,24 @@
-﻿import { ReactNode } from 'react'
+import type { ReactNode } from 'react'
 
 interface KPICardProps {
   icon: ReactNode
   label: string
   value: string | number
-  change?: string
-  changeColor?: string
+  helper?: string
+  tone?: 'blue' | 'teal' | 'amber' | 'rose' | 'neutral'
 }
 
-export function KPICard({ icon, label, value, change, changeColor = '#34C759' }: KPICardProps) {
+export function KPICard({ icon, label, value, helper, tone = 'neutral' }: KPICardProps) {
   return (
-    <div className="apple-card p-6">
-      <div className="flex items-center gap-3 text-secondary mb-2">
-        {icon} {label}
+    <article className={`kpi-card kpi-card--${tone}`}>
+      <div className="kpi-card__top">
+        <span className="kpi-card__icon" aria-hidden="true">
+          {icon}
+        </span>
+        <span>{label}</span>
       </div>
-      <div className="text-4xl font-semibold tracking-tighter">{value}</div>
-      {change && (
-        <div className="text-sm mt-1" style={{ color: changeColor }}>
-          {change}
-        </div>
-      )}
-    </div>
+      <div className="kpi-card__value">{value}</div>
+      {helper && <div className="kpi-card__helper">{helper}</div>}
+    </article>
   )
 }
