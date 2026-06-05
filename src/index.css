@@ -1,22 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f7f8fa;
-  --sidebar: rgba(248, 249, 251, 0.9);
+  --bg: #f5f5f7;
+  --sidebar: rgba(242, 242, 247, 0.82);
   --surface: #ffffff;
-  --surface-muted: #f0f2f5;
-  --surface-soft: #fafbfc;
+  --surface-muted: #f5f5f7;
+  --surface-soft: rgba(250, 250, 252, 0.88);
   --text: #1d1d1f;
-  --muted: #6e6e73;
-  --muted-2: #9a9aa2;
-  --border: #d8dce4;
-  --border-soft: #e8ebf0;
-  --blue: #0a84ff;
-  --blue-strong: #2563eb;
-  --teal: #0f766e;
-  --amber: #b45309;
-  --rose: #e11d48;
-  --shadow: 0 1px 2px rgba(20, 24, 35, 0.05), 0 10px 24px rgba(20, 24, 35, 0.04);
+  --muted: rgba(60, 60, 67, 0.68);
+  --muted-2: rgba(60, 60, 67, 0.44);
+  --border: rgba(60, 60, 67, 0.16);
+  --border-soft: rgba(60, 60, 67, 0.1);
+  --blue: #0071e3;
+  --blue-strong: #0071e3;
+  --teal: #248a3d;
+  --amber: #b26a00;
+  --rose: #d70015;
+  --shadow: 0 1px 1px rgba(0, 0, 0, 0.035), 0 16px 40px rgba(0, 0, 0, 0.055);
   --radius: 8px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
   color: var(--text);
@@ -79,8 +79,8 @@ button {
   top: 0;
   z-index: 30;
   border-bottom: 1px solid var(--border);
-  background: rgba(246, 247, 250, 0.92);
-  backdrop-filter: blur(18px) saturate(160%);
+  background: rgba(245, 245, 247, 0.76);
+  backdrop-filter: blur(24px) saturate(180%);
 }
 
 .app-nav__inner {
@@ -125,8 +125,8 @@ button {
   display: grid;
   place-items: center;
   color: #fff;
-  background: linear-gradient(145deg, #0a84ff, #0f766e);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  background: linear-gradient(180deg, #1486f5, #006edb);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 8px 18px rgba(0, 113, 227, 0.18);
 }
 
 .tab-strip,
@@ -189,7 +189,8 @@ button {
 
 .tab-button--active {
   color: #fff;
-  background: #1d1d1f;
+  background: var(--blue-strong);
+  box-shadow: 0 1px 2px rgba(0, 113, 227, 0.24);
 }
 
 .action-button {
@@ -201,25 +202,26 @@ button {
 
 .action-button--ghost {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.72);
   border-color: var(--border);
 }
 
 .action-button--danger {
   color: var(--rose);
-  background: #fff1f2;
-  border-color: #fecdd3;
+  background: #fff2f4;
+  border-color: rgba(215, 0, 21, 0.18);
 }
 
 .action-button--install {
-  background: var(--teal);
-  border-color: var(--teal);
+  color: var(--blue-strong);
+  background: #eef6ff;
+  border-color: rgba(0, 113, 227, 0.18);
 }
 
 .icon-button {
   width: 34px;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.72);
   border: 1px solid var(--border);
 }
 
@@ -230,7 +232,7 @@ button {
 .tab-button:hover,
 .action-button:hover,
 .icon-button:hover {
-  box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.035);
+  box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.028);
 }
 
 .app-main {
@@ -244,8 +246,9 @@ button {
 .kpi-card {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(18px) saturate(150%);
 }
 
 .workspace-header {
@@ -276,7 +279,7 @@ button {
   min-width: 0;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
-  background: var(--surface-soft);
+  background: rgba(255, 255, 255, 0.56);
   overflow: hidden;
 }
 
@@ -306,7 +309,7 @@ button {
 }
 
 .eyebrow {
-  color: var(--teal);
+  color: var(--blue-strong);
   font-size: 11px;
   font-weight: 760;
   text-transform: uppercase;
@@ -324,8 +327,9 @@ button {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow);
+  backdrop-filter: blur(18px) saturate(150%);
 }
 
 .kpi-card {
@@ -380,22 +384,22 @@ button {
 
 .kpi-card--blue .kpi-card__icon {
   color: var(--blue-strong);
-  background: #e8f1ff;
+  background: #eaf4ff;
 }
 
 .kpi-card--teal .kpi-card__icon {
   color: var(--teal);
-  background: #e4f8f3;
+  background: #eaf7ee;
 }
 
 .kpi-card--amber .kpi-card__icon {
   color: var(--amber);
-  background: #fff4d8;
+  background: #fff4df;
 }
 
 .kpi-card--rose .kpi-card__icon {
   color: var(--rose);
-  background: #ffe8ee;
+  background: #fff0f3;
 }
 
 .dashboard-grid {
@@ -836,13 +840,13 @@ button:focus-visible {
 }
 
 .calendar-card--done {
-  border-color: #99f6e4;
-  background: #f0fdfa;
+  border-color: rgba(36, 138, 61, 0.2);
+  background: #f3fbf5;
 }
 
 .calendar-card--scheduled {
-  border-color: #bfdbfe;
-  background: #eff6ff;
+  border-color: rgba(0, 113, 227, 0.2);
+  background: #f2f8ff;
 }
 
 .repurpose-grid,
@@ -888,19 +892,19 @@ button:focus-visible {
   width: 760px;
   padding: 30px;
   background: #fff;
-  color: #111827;
+  color: var(--text);
   font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
 }
 
 .report-sheet header {
-  border-bottom: 3px solid #2563eb;
+  border-bottom: 3px solid var(--blue-strong);
   padding-bottom: 16px;
   margin-bottom: 18px;
 }
 
 .report-sheet header span {
-  color: #2563eb;
+  color: var(--blue-strong);
   font-weight: 800;
 }
 
@@ -929,7 +933,7 @@ button:focus-visible {
 .report-metrics div {
   padding: 12px;
   border-radius: var(--radius);
-  background: #f6f7f9;
+  background: var(--surface-muted);
 }
 
 .report-metrics strong,
@@ -942,7 +946,7 @@ button:focus-visible {
 }
 
 .report-metrics span {
-  color: #667085;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -967,8 +971,9 @@ button:focus-visible {
     border-right: 1px solid rgba(216, 220, 228, 0.86);
     border-bottom: 0;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(238, 241, 245, 0.68)),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(242, 242, 247, 0.72)),
       var(--sidebar);
+    backdrop-filter: blur(30px) saturate(180%);
   }
 
   .app-nav__inner {
@@ -1014,7 +1019,7 @@ button:focus-visible {
     gap: 6px;
     min-width: 0;
     padding-top: 10px;
-    border-top: 1px solid rgba(216, 220, 228, 0.8);
+    border-top: 1px solid var(--border-soft);
   }
 
   .command-group:first-child {

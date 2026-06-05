@@ -74,7 +74,7 @@ const defaultHours: Record<Platform, number[]> = {
   Douyin: [12, 19, 20, 21],
 }
 
-const contentMixColors = ['#2563eb', '#0f766e', '#e11d48', '#b45309']
+const contentMixColors = ['#0071e3', '#248a3d', '#ff9500', '#5856d6']
 
 const emptyDraft: ContentDraft = {
   platform: 'Bilibili',
@@ -696,8 +696,8 @@ function OverlookApp() {
                       <XAxis dataKey="day" />
                       <YAxis tickFormatter={(value: number) => formatNumber(value)} width={48} />
                       <Tooltip formatter={(value: number) => plainNumber.format(value)} />
-                      <Line type="monotone" dataKey="views" stroke="#2563eb" strokeWidth={3} dot={false} name="播放" isAnimationActive={false} />
-                      <Line type="monotone" dataKey="interactions" stroke="#0f766e" strokeWidth={2} dot={false} name="互动" isAnimationActive={false} />
+                      <Line type="monotone" dataKey="views" stroke="#0071e3" strokeWidth={3} dot={false} name="播放" isAnimationActive={false} />
+                      <Line type="monotone" dataKey="interactions" stroke="#248a3d" strokeWidth={2} dot={false} name="互动" isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
