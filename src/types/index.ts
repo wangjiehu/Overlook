@@ -28,3 +28,8 @@ export interface Account {
 
 export const PLATFORMS = ['Bilibili', 'Xiaohongshu', 'Douyin'] as const
 export type Platform = typeof PLATFORMS[number]
+
+export interface Goal {
+  targetViews: number
+  targetFollowers: number
+}

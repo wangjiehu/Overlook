@@ -11,7 +11,7 @@ interface KPICardProps {
 export function KPICard({ icon, label, value, change, changeColor = '#34C759' }: KPICardProps) {
   return (
     <div className="apple-card p-6">
-      <div className="flex items-center gap-3 text-[#86868B] mb-2">
+      <div className="flex items-center gap-3 text-secondary mb-2">
         {icon} {label}
       </div>
       <div className="text-4xl font-semibold tracking-tighter">{value}</div>

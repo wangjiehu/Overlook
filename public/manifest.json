@@ -1,0 +1,26 @@
+{
+  "name": "Overlook - 个人创作者数据看板",
+  "short_name": "Overlook",
+  "description": "专为个人创作者打造的一站式数据看板。B站 · 小红书 · 抖音，全部数据，一目了然。数据本地，离线可用。",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#007AFF",
+  "background_color": "#F5F5F7",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["productivity", "utilities", "lifestyle"],
+  "lang": "zh-CN",
+  "dir": "ltr"
+}
