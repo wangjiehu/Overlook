@@ -38,10 +38,11 @@ It's the dashboard you wish the platforms themselves provided — refined, priva
 - **Cross-Platform Charts** — Interactive bar, donut, and smooth line visualizations powered by Recharts showing comparisons and 30-day trends.
 - **Platform Deep Dives** — Dedicated cards for each platform with growth indicators, key metrics, and highlighted top-performing content.
 - **Recent Content Table** — Clean, sortable-style view of your latest videos and notes with performance numbers.
-- **AI Growth Insights** — Rule-based actionable suggestions today (e.g., “拆解 B 站长视频成小红书笔记”). Ready for real Claude integration tomorrow.
-- **Account Management** — Mock-connected accounts with easy add/remove flow and visual status.
-- **Export & Import** — One-click JSON report export. Full CSV import (using PapaParse) - download sample or use your real platform exports (Bilibili/Xiaohongshu/Douyin) to add your content data to the list and export combined.
-- **Delightful Interactions** — Smooth tab transitions with Framer Motion, elegant toasts via Sonner, and lift-on-hover cards.
+- **AI Growth Insights & Content Ideas** — Dynamic, data-driven suggestions + Content Repurposing Generator (e.g., turn Bilibili video into Xiaohongshu notes). Ready for real Claude.
+- **Advanced Data Exploration** — Real-time search, platform filters, date range picker, sorted content performance.
+- **Account Management** — Mock-connected accounts with easy add/remove flow, visual status, and persistence.
+- **Export & Import** — One-click JSON report export. Full CSV import (PapaParse) - use sample or real exports to merge your data; clear imported anytime.
+- **Delightful Interactions** — Smooth tab transitions with Framer Motion, elegant toasts via Sonner, lift-on-hover cards, dark mode.
 
 Everything runs 100% locally. Your data never leaves your machine.
 

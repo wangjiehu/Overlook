@@ -58,6 +58,8 @@ function OverlookApp() {
   const [showAddAccount, setShowAddAccount] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [platformFilter, setPlatformFilter] = useState<'all' | Platform>('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
 
   // Calculate totals (use displayContent for personal stats too, but keep platform aggregates)
   const totalViews = mockPlatformData.reduce((sum, p) => sum + p.views, 0)
@@ -98,16 +100,63 @@ function OverlookApp() {
     .filter(item => {
       const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesPlatform = platformFilter === 'all' || item.platform === platformFilter
-      return matchesSearch && matchesPlatform
+      const itemDate = item.date
+      const matchesFrom = !dateFrom || itemDate >= dateFrom
+      const matchesTo = !dateTo || itemDate <= dateTo
+      return matchesSearch && matchesPlatform && matchesFrom && matchesTo
     })
 
-  // Dynamic + rule-based insights (ready for real Claude)
-  const insights = [
-    `${topPlatform.platform} 互动率最高 (${topPlatform.engagement}%)，建议优先在这个平台发布核心内容。`,
-    "你的小红书笔记种草力最强，建议把B站长视频的核心观点拆成3-5篇小红书笔记。",
-    "抖音短视频增长稳健，但评论区互动低于平均。尝试在视频结尾加明确问题引导评论。",
-    "跨平台最佳发布时间：小红书晚上8-10点，B站周末上午，抖音工作日中午。",
-  ]
+  // Dynamic + rule-based insights (ready for real Claude integration)
+  const topContentByPlatform = PLATFORMS.map(platform => {
+    const platformContent = displayContent.filter(c => c.platform === platform)
+    if (platformContent.length === 0) return null
+    return platformContent.reduce((max, c) => c.views > max.views ? c : max)
+  }).filter(Boolean) as ContentItem[]
+
+  const generateInsights = () => {
+    const insights: string[] = [
+      `${topPlatform.platform} 互动率最高 (${topPlatform.engagement}%)，建议优先在这个平台发布核心内容。`,
+      "跨平台最佳发布时间：小红书晚上8-10点，B站周末上午，抖音工作日中午。",
+    ]
+
+    if (topContentByPlatform.length > 0) {
+      const topBili = topContentByPlatform.find(c => c.platform === 'Bilibili')
+      if (topBili) {
+        insights.push(`B站爆款「${topBili.title}」建议改编为小红书笔记：提取3个核心观点 + 配图 + 个人经验。`)
+      }
+      const topXhs = topContentByPlatform.find(c => c.platform === 'Xiaohongshu')
+      if (topXhs) {
+        insights.push(`小红书高互动笔记可转成抖音短视频脚本：用前15秒钩子讲痛点，结尾引导关注。`)
+      }
+    }
+
+    // Add data-driven
+    const avgViews = displayContent.length > 0 ? displayContent.reduce((s, c) => s + c.views, 0) / displayContent.length : 0
+    if (avgViews > 30000) {
+      insights.push('你的平均播放量不错！尝试固定系列内容（如每周一「工具推荐」），提升粉丝粘性。')
+    } else {
+      insights.push('播放量有提升空间：分析标题党 vs 价值党，测试A/B标题在不同平台。')
+    }
+
+    return insights
+  }
+
+  const insights = generateInsights()
+
+  // Content Idea Generator for personal creators
+  const generateContentIdeas = () => {
+    const ideas: string[] = []
+    if (topContentByPlatform.length > 0) {
+      const top = topContentByPlatform[0]
+      ideas.push(`基于「${top.title}」爆款：制作系列「${top.platform} 干货」笔记，每周一篇，保持一致风格。`)
+      ideas.push(`跨平台复用：将 ${top.platform} 内容拆成 3 条短视频（抖音）+ 1 篇深度笔记（小红书）。`)
+    }
+    ideas.push('热门趋势：结合「AI工具」+「个人成长」，做「我用AI做的第一个副业项目」分享。')
+    ideas.push('互动钩子：结尾问「你最想学哪个技能？评论区告诉我」，提升完播和评论。')
+    return ideas
+  }
+
+  const contentIdeas = generateContentIdeas()
 
   const handleExport = () => {
     const data = {
@@ -441,6 +490,28 @@ function OverlookApp() {
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="px-3 py-2 rounded-full border border-[#E8E8ED] bg-white text-sm focus:outline-none focus:border-[#007AFF]"
+                    title="开始日期"
+                  />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="px-3 py-2 rounded-full border border-[#E8E8ED] bg-white text-sm focus:outline-none focus:border-[#007AFF]"
+                    title="结束日期"
+                  />
+                  {(searchTerm || platformFilter !== 'all' || dateFrom || dateTo) && (
+                    <button
+                      onClick={() => { setSearchTerm(''); setPlatformFilter('all'); setDateFrom(''); setDateTo(''); }}
+                      className="apple-btn apple-btn-ghost text-sm px-3"
+                    >
+                      清除筛选
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -518,6 +589,20 @@ function OverlookApp() {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="mt-8">
+                <h3 className="apple-h3 mb-4 flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-[#FF9500]" /> 内容灵感生成器（基于你的数据）
+                </h3>
+                <div className="grid gap-3">
+                  {contentIdeas.map((idea, i) => (
+                    <div key={i} className="apple-card p-5 text-[15px] border-l-4 border-[#FF9500]">
+                      {idea}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-[#86868B] mt-2">这些建议根据你的高表现内容自动生成。持续输入数据，建议会更准。</p>
               </div>
 
               <div className="mt-8 text-xs text-[#86868B] border-t pt-4">
