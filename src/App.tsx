@@ -153,7 +153,25 @@ type CompetitorScanState = {
   message: string
 }
 
+type ExternalScanResponse = {
+  name?: string
+  followers?: number | string
+  avgViews?: number | string
+  avg_views?: number | string
+  averageViews?: number | string
+  engagementRate?: number | string
+  engagement_rate?: number | string
+  angle?: string
+  confidence?: number | string
+  scanConfidence?: number | string
+  scan_confidence?: number | string
+  scannedAt?: string
+  scanned_at?: string
+}
+
 const WORKSPACE_VERSION = 3
+const EXTERNAL_SCAN_ENDPOINT = String(import.meta.env.VITE_OVERLOOK_SCAN_ENDPOINT ?? '').trim()
+const SCAN_PENDING_MESSAGE = EXTERNAL_SCAN_ENDPOINT ? '正在扫描外部数据源' : '正在生成本地估算'
 
 const intentLabel: Record<ContentIntent, string> = {
   growth: '拉新',
@@ -380,6 +398,41 @@ function estimateCompetitorFromHandle(platform: Platform, rawName: string): Comp
     scanConfidence,
     scannedAt: new Date().toISOString(),
   }
+}
+
+function clampConfidence(value: number) {
+  return Math.min(100, Math.max(1, Math.round(value)))
+}
+
+function parseExternalScanResponse(platform: Platform, fallbackName: string, data: ExternalScanResponse): CompetitorDraft | null {
+  const followers = toNumber(data.followers)
+  const avgViews = toNumber(data.avgViews ?? data.avg_views ?? data.averageViews)
+  const engagementRate = toNumber(data.engagementRate ?? data.engagement_rate)
+  const angle = String(data.angle ?? '').trim()
+  if (followers <= 0 || avgViews <= 0 || engagementRate <= 0 || !angle) return null
+
+  return {
+    platform,
+    name: String(data.name ?? fallbackName).trim() || fallbackName,
+    followers,
+    avgViews,
+    engagementRate,
+    angle,
+    scanSource: 'external',
+    scanConfidence: clampConfidence(toNumber(data.confidence ?? data.scanConfidence ?? data.scan_confidence ?? 90)),
+    scannedAt: data.scannedAt || data.scanned_at || new Date().toISOString(),
+  }
+}
+
+async function fetchExternalCompetitorScan(endpoint: string, platform: Platform, name: string, signal: AbortSignal) {
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ platform, handle: name }),
+    signal,
+  })
+  if (!response.ok) return null
+  return parseExternalScanResponse(platform, name, (await response.json()) as ExternalScanResponse)
 }
 
 function readCell(row: Record<string, string>, keys: string[], fallback = '') {
@@ -759,17 +812,42 @@ function OverlookApp() {
 
     const requestId = scanRequestRef.current + 1
     scanRequestRef.current = requestId
-    const timer = window.setTimeout(() => {
+    let controller: AbortController | null = null
+    const timer = window.setTimeout(async () => {
       if (scanRequestRef.current !== requestId) return
-      const estimatedDraft = estimateCompetitorFromHandle(platform, name)
+      let scannedDraft = estimateCompetitorFromHandle(platform, name)
+      let scanMessage = `本地估算 · 可信度 ${scannedDraft.scanConfidence}%`
+
+      if (EXTERNAL_SCAN_ENDPOINT) {
+        controller = new AbortController()
+        const timeout = window.setTimeout(() => controller?.abort(), 3500)
+        try {
+          const externalDraft = await fetchExternalCompetitorScan(EXTERNAL_SCAN_ENDPOINT, platform, name, controller.signal)
+          if (externalDraft) {
+            scannedDraft = externalDraft
+            scanMessage = `外部数据 · 可信度 ${externalDraft.scanConfidence}%`
+          } else {
+            scanMessage = `接口无有效数据 · ${scanMessage}`
+          }
+        } catch {
+          scanMessage = `接口不可用 · ${scanMessage}`
+        } finally {
+          window.clearTimeout(timeout)
+        }
+      }
+
+      if (scanRequestRef.current !== requestId) return
       setCompetitorDraft((current) => {
         if (current.name.trim() !== name || current.platform !== platform) return current
-        return { ...current, ...estimatedDraft }
+        return { ...current, ...scannedDraft }
       })
-      setCompetitorScan({ status: 'ready', message: `本地估算 · 可信度 ${estimatedDraft.scanConfidence}%` })
+      setCompetitorScan({ status: 'ready', message: scanMessage })
     }, 650)
 
-    return () => window.clearTimeout(timer)
+    return () => {
+      window.clearTimeout(timer)
+      controller?.abort()
+    }
   }, [competitorDraft.name, competitorDraft.platform])
 
   const normalizedContent = useMemo(() => content.map(normalizeContentItem), [content])
@@ -1735,7 +1813,7 @@ function OverlookApp() {
                         scanConfidence: 0,
                         scannedAt: '',
                       })
-                      if (competitorDraft.name.trim()) setCompetitorScan({ status: 'scanning', message: '正在扫描账号画像' })
+                      if (competitorDraft.name.trim()) setCompetitorScan({ status: 'scanning', message: SCAN_PENDING_MESSAGE })
                     }}
                   >
                     {PLATFORMS.map((platform) => (
@@ -1762,7 +1840,7 @@ function OverlookApp() {
                       })
                       setCompetitorScan(
                         event.target.value.trim()
-                          ? { status: 'scanning', message: '正在扫描账号画像' }
+                          ? { status: 'scanning', message: SCAN_PENDING_MESSAGE }
                           : { status: 'idle', message: '输入账号后自动扫描' },
                       )
                     }}

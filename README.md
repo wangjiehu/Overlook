@@ -54,6 +54,8 @@ Bilibili,从 0 到 MVP：一次完整产品构建复盘,长视频,2026-05-20,9,3
 
 当前静态版会在输入对标账号后自动补全一组稳定的本地估算数据，便于完成产品流程和差距分析；粉丝、均播、互动率和角度都可以继续手动修正。每个对标账号会保留数据来源、置信度和更新时间。真实平台扫描需要后端代理、授权或官方数据源接入，避免在浏览器端直接依赖不稳定抓取。
 
+如需接入真实扫描源，可在构建时设置 `VITE_OVERLOOK_SCAN_ENDPOINT`。前端会向该地址 `POST` `{ platform, handle }`，期望返回 `{ followers, avgViews, engagementRate, angle, confidence, scannedAt }`；接口不可用、超时或返回无效结构时会自动回退到本地估算。
+
 ## GitHub Pages
 
 仓库已包含 `.github/workflows/deploy.yml`。推送到 `main` 后，Actions 会运行 `npm run verify` 并上传 `dist` 到 GitHub Pages。
