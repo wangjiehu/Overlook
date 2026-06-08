@@ -1042,12 +1042,39 @@ select:focus {
 
 .snapshot-card {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  padding: 8px;
+  padding: 7px 8px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
   background: var(--surface-soft);
+}
+
+.snapshot-card strong,
+.snapshot-card small,
+.snapshot-trend {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snapshot-trend {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.snapshot-trend {
+  font-style: normal;
+  font-weight: 720;
+}
+
+.snapshot-trend--positive {
+  color: var(--green);
+}
+
+.snapshot-trend--negative {
+  color: var(--red);
 }
 
 .market-card svg {
@@ -1114,6 +1141,7 @@ select:focus {
 }
 
 .preview-metrics div,
+.mapping-summary div,
 .preview-row {
   border: 1px solid var(--border-soft);
   border-radius: var(--radius);
@@ -1123,19 +1151,79 @@ select:focus {
 
 .preview-metrics strong,
 .preview-metrics span,
+.mapping-summary strong,
+.mapping-summary span,
 .preview-row strong,
 .preview-row span {
   display: block;
 }
 
-.preview-metrics strong {
+.preview-metrics strong,
+.mapping-summary strong {
   font-size: 20px;
 }
 
 .preview-metrics span,
+.mapping-summary span,
 .preview-row span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.mapping-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mapping-warning {
+  border-color: rgba(215, 0, 21, 0.18) !important;
+  background: #fff7f8 !important;
+}
+
+.mapping-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 84px;
+  overflow: auto;
+}
+
+.mapping-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 25px;
+  max-width: 100%;
+  border: 1px solid rgba(52, 199, 89, 0.18);
+  border-radius: 999px;
+  background: #f4fbf6;
+  color: var(--green);
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.mapping-chip em {
+  max-width: 150px;
+  overflow: hidden;
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 680;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mapping-chip--missing {
+  border-color: rgba(215, 0, 21, 0.18);
+  background: #fff7f8;
+  color: var(--red);
+}
+
+.mapping-chip--ignored {
+  border-color: var(--border);
+  background: rgba(120, 120, 128, 0.08);
+  color: var(--muted);
 }
 
 .preview-list {
@@ -1148,6 +1236,50 @@ select:focus {
 .preview-row--warning {
   border-color: rgba(215, 0, 21, 0.18);
   background: #fff7f8;
+}
+
+.restore-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.restore-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.restore-card {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  padding: 9px;
+}
+
+.restore-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.restore-card strong {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.restore-card em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 680;
 }
 
 .modal-actions {
@@ -1712,5 +1844,23 @@ select:focus {
 
   .status-strip p {
     min-width: 86px;
+  }
+
+  .preview-metrics,
+  .mapping-summary,
+  .restore-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-panel {
+    padding: 12px;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions .action-button {
+    justify-content: center;
   }
 }

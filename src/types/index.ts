@@ -58,6 +58,7 @@ export interface CompetitorSnapshot {
   id: string
   competitorId: string
   date: string
+  capturedAt?: string
   followers: number
   avgViews: number
   engagementRate: number

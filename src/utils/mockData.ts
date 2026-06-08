@@ -212,9 +212,12 @@ export const seedCompetitors: Competitor[] = [
 ]
 
 export const seedCompetitorSnapshots: CompetitorSnapshot[] = [
-  { id: 'snap-001', competitorId: 'comp-001', date: '2026-06-01', followers: 53000, avgViews: 36000, engagementRate: 18.4 },
-  { id: 'snap-002', competitorId: 'comp-002', date: '2026-06-01', followers: 92000, avgViews: 52000, engagementRate: 9.6 },
-  { id: 'snap-003', competitorId: 'comp-003', date: '2026-06-01', followers: 118000, avgViews: 76000, engagementRate: 13.1 },
+  { id: 'snap-001', competitorId: 'comp-001', date: '2026-06-01', capturedAt: '2026-06-01T09:00:00.000Z', followers: 53000, avgViews: 36000, engagementRate: 18.4 },
+  { id: 'snap-002', competitorId: 'comp-002', date: '2026-06-01', capturedAt: '2026-06-01T09:00:00.000Z', followers: 92000, avgViews: 52000, engagementRate: 9.6 },
+  { id: 'snap-003', competitorId: 'comp-003', date: '2026-06-01', capturedAt: '2026-06-01T09:00:00.000Z', followers: 118000, avgViews: 76000, engagementRate: 13.1 },
+  { id: 'snap-004', competitorId: 'comp-001', date: '2026-05-25', capturedAt: '2026-05-25T09:00:00.000Z', followers: 51200, avgViews: 33500, engagementRate: 17.8 },
+  { id: 'snap-005', competitorId: 'comp-002', date: '2026-05-25', capturedAt: '2026-05-25T09:00:00.000Z', followers: 90400, avgViews: 49800, engagementRate: 9.9 },
+  { id: 'snap-006', competitorId: 'comp-003', date: '2026-05-25', capturedAt: '2026-05-25T09:00:00.000Z', followers: 116500, avgViews: 74800, engagementRate: 12.7 },
 ]
 
 export const seedGoal: Goal = {

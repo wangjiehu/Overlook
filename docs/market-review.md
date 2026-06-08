@@ -1,6 +1,6 @@
 # Market Review
 
-Date: 2026-06-06
+Date: 2026-06-08
 
 ## What Mature Tools Consistently Offer
 
@@ -10,15 +10,16 @@ Date: 2026-06-06
 - Exportable reports are expected. Solo creators still need shareable proof for sponsors, agencies and collaborators.
 - Mature creator tools treat raw imports as operational data, not just rows in a table. The useful pattern is validation, preview, and then conversion into actions.
 - For a local-first product, backup and restore matter more than unofficial posting connectors. Users need confidence that browser-local data can survive device or browser changes.
+- Recovery and import flows should be explicit before they mutate local data. Users need to see what will be recognized, skipped or replaced before committing.
 
 ## Product Decisions Applied To Overlook
 
 - Added best-time slots per platform, based on local content history with platform fallbacks.
 - Added a weekly calendar generator, platform filtering, experiment objectives, tracking metrics, status cycling and copy-to-clipboard.
-- Added competitor benchmarks with average-view and engagement-rate gaps, plus snapshot capture for trend review.
+- Added competitor benchmarks with average-view and engagement-rate gaps, plus snapshot capture and previous-snapshot deltas for trend review.
 - Added campaign and content-pillar summaries, content tags, audience, hook and intent fields to turn raw data into repeatable content systems.
-- Added CSV import preview with duplicate and invalid-row handling.
-- Added full workspace backup and restore for the browser-local data model.
+- Added CSV import preview with automatic column mapping, ignored-column visibility, duplicate handling and invalid-row handling.
+- Added full workspace backup and restore for the browser-local data model, with a restore-before-overwrite diff preview.
 - Upgraded the sponsor PDF into a Creator Media Kit with optional handle redaction.
 - Added Playwright visual smoke checks to guard the no-scroll desktop target and import-preview workflow.
 - Kept the product local-first instead of trying to ship brittle unofficial platform connectors.
@@ -31,3 +32,5 @@ Date: 2026-06-06
 - Metricool Best Time to Post: https://help.metricool.com/en/article/best-time-to-post-on-social-media-in-metricool-hj3rgj/
 - Metricool Competitor Analysis: https://help.metricool.com/en/article/competitor-analysis-1vs9jxy/
 - Sprout Competitive Analysis: https://sproutsocial.com/competitive-analysis/
+- Apple HIG Color: https://developer.apple.com/design/human-interface-guidelines/color
+- Apple HIG Typography: https://developer.apple.com/design/human-interface-guidelines/typography

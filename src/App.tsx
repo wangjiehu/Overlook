@@ -76,6 +76,32 @@ type ParsedImportRow = {
   duplicate: boolean
 }
 
+type ImportFieldKey =
+  | 'platform'
+  | 'title'
+  | 'type'
+  | 'publishedAt'
+  | 'hour'
+  | 'views'
+  | 'likes'
+  | 'comments'
+  | 'shares'
+  | 'saves'
+  | 'followersGained'
+  | 'pillar'
+  | 'campaign'
+  | 'tags'
+  | 'audience'
+  | 'hook'
+  | 'intent'
+
+type ImportColumnMapping = {
+  field: ImportFieldKey
+  label: string
+  source: string | null
+  required?: boolean
+}
+
 type ImportPreview = {
   filename: string
   accepted: ContentItem[]
@@ -83,6 +109,8 @@ type ImportPreview = {
   totalRows: number
   duplicateCount: number
   invalidCount: number
+  mappings: ImportColumnMapping[]
+  ignoredColumns: string[]
 }
 
 type ActionExperiment = {
@@ -105,6 +133,14 @@ type WorkspaceSnapshot = {
   calendar: CalendarItem[]
 }
 
+type RestorePreview = {
+  filename: string
+  snapshot: WorkspaceSnapshot
+  version: number
+  exportedAt?: string
+  metrics: Array<{ label: string; current: number; incoming: number }>
+}
+
 const WORKSPACE_VERSION = 3
 
 const intentLabel: Record<ContentIntent, string> = {
@@ -115,6 +151,26 @@ const intentLabel: Record<ContentIntent, string> = {
 }
 
 const intentOptions: ContentIntent[] = ['growth', 'save', 'trust', 'conversion']
+
+const importFieldDefinitions: Array<{ field: ImportFieldKey; label: string; aliases: string[]; required?: boolean }> = [
+  { field: 'platform', label: '平台', aliases: ['平台', 'platform', 'Platform'], required: true },
+  { field: 'title', label: '标题', aliases: ['标题', 'title', 'Title', '内容标题'], required: true },
+  { field: 'type', label: '类型', aliases: ['类型', 'type', 'format', '内容类型'] },
+  { field: 'publishedAt', label: '日期', aliases: ['日期', 'date', 'publishedAt', '发布时间'], required: true },
+  { field: 'hour', label: '小时', aliases: ['小时', 'hour', '发布小时'] },
+  { field: 'views', label: '播放量', aliases: ['播放量', 'views', '曝光', '阅读量'] },
+  { field: 'likes', label: '点赞', aliases: ['点赞', 'likes', '赞'] },
+  { field: 'comments', label: '评论', aliases: ['评论', 'comments'] },
+  { field: 'shares', label: '分享', aliases: ['分享', 'shares', '转发'] },
+  { field: 'saves', label: '收藏', aliases: ['收藏', 'saves', 'favorites'] },
+  { field: 'followersGained', label: '涨粉', aliases: ['涨粉', 'followersGained', '新增粉丝'] },
+  { field: 'pillar', label: '内容支柱', aliases: ['内容支柱', 'pillar', '主题'] },
+  { field: 'campaign', label: '活动', aliases: ['活动', 'campaign', '系列'] },
+  { field: 'tags', label: '标签', aliases: ['标签', 'tags', '关键词'] },
+  { field: 'audience', label: '受众', aliases: ['受众', 'audience', '目标人群'] },
+  { field: 'hook', label: '钩子', aliases: ['钩子', 'hook', '开头'] },
+  { field: 'intent', label: '意图', aliases: ['意图', 'intent', '目标'] },
+]
 
 const viewMeta: Record<ViewKey, { eyebrow: string; title: string; summary: string }> = {
   overview: {
@@ -208,6 +264,18 @@ function formatPercent(value: number) {
   return `${value.toFixed(1)}%`
 }
 
+function snapshotTimestamp(snapshot: Pick<CompetitorSnapshot, 'date' | 'capturedAt'>) {
+  const time = new Date(snapshot.capturedAt ?? `${snapshot.date}T00:00:00`).getTime()
+  return Number.isFinite(time) ? time : 0
+}
+
+function formatSignedDelta(value: number | null, formatter: (input: number) => string) {
+  if (value === null) return '首次'
+  if (value === 0) return '持平'
+  const sign = value > 0 ? '+' : '-'
+  return `${sign}${formatter(Math.abs(value))}`
+}
+
 function sumBy<T>(items: T[], pick: (item: T) => number) {
   return items.reduce((total, item) => total + pick(item), 0)
 }
@@ -241,6 +309,42 @@ function readCell(row: Record<string, string>, keys: string[], fallback = '') {
     if (value) return value
   }
   return fallback
+}
+
+function normalizeHeader(value: string) {
+  return value.replace(/\s+/g, '').trim().toLowerCase()
+}
+
+function buildImportMapping(headers: string[]) {
+  const normalizedHeaders = headers.filter(Boolean).map((header) => ({ header, normalized: normalizeHeader(header) }))
+  const usedHeaders = new Set<string>()
+
+  const mappings = importFieldDefinitions.map((definition) => {
+    const match = normalizedHeaders.find(
+      (entry) => !usedHeaders.has(entry.header) && definition.aliases.some((alias) => normalizeHeader(alias) === entry.normalized),
+    )
+    if (match) usedHeaders.add(match.header)
+    return {
+      field: definition.field,
+      label: definition.label,
+      required: definition.required,
+      source: match?.header ?? null,
+    }
+  })
+
+  return {
+    mappings,
+    ignoredColumns: headers.filter((header) => header && !usedHeaders.has(header)),
+  }
+}
+
+function readMappedCell(row: Record<string, string>, mappings: ImportColumnMapping[], field: ImportFieldKey, fallback = '') {
+  const mapping = mappings.find((entry) => entry.field === field)
+  const mappedValue = mapping?.source ? row[mapping.source]?.trim() : ''
+  if (mappedValue) return mappedValue
+
+  const definition = importFieldDefinitions.find((entry) => entry.field === field)
+  return definition ? readCell(row, definition.aliases, fallback) : fallback
 }
 
 function splitTags(value: string) {
@@ -278,11 +382,11 @@ function normalizeContentItem(item: ContentItem): ContentItem {
   }
 }
 
-function parseImportedRow(row: Record<string, string>, index: number, existingKeys: Set<string>): ParsedImportRow {
+function parseImportedRow(row: Record<string, string>, index: number, existingKeys: Set<string>, mappings: ImportColumnMapping[]): ParsedImportRow {
   const issues: string[] = []
-  const platform = normalizePlatform(readCell(row, ['平台', 'platform', 'Platform']))
-  const title = readCell(row, ['标题', 'title', 'Title', '内容标题'])
-  const publishedAt = readCell(row, ['日期', 'date', 'publishedAt', '发布时间'], new Date().toISOString().slice(0, 10)).slice(0, 10)
+  const platform = normalizePlatform(readMappedCell(row, mappings, 'platform'))
+  const title = readMappedCell(row, mappings, 'title')
+  const publishedAt = readMappedCell(row, mappings, 'publishedAt', new Date().toISOString().slice(0, 10)).slice(0, 10)
 
   if (!platform) issues.push('平台无法识别')
   if (!title) issues.push('缺少标题')
@@ -296,21 +400,21 @@ function parseImportedRow(row: Record<string, string>, index: number, existingKe
     id: makeId(`import-${index}`),
     platform,
     title,
-    type: readCell(row, ['类型', 'type', 'format', '内容类型'], platform === 'Xiaohongshu' ? '图文笔记' : '短视频'),
+    type: readMappedCell(row, mappings, 'type', platform === 'Xiaohongshu' ? '图文笔记' : '短视频'),
     publishedAt,
-    hour: Math.min(23, Math.max(0, Math.round(toNumber(readCell(row, ['小时', 'hour', '发布小时'], '20'))))),
-    views: toNumber(readCell(row, ['播放量', 'views', '曝光', '阅读量'])),
-    likes: toNumber(readCell(row, ['点赞', 'likes', '赞'])),
-    comments: toNumber(readCell(row, ['评论', 'comments'])),
-    shares: toNumber(readCell(row, ['分享', 'shares', '转发'])),
-    saves: toNumber(readCell(row, ['收藏', 'saves', 'favorites'])),
-    followersGained: toNumber(readCell(row, ['涨粉', 'followersGained', '新增粉丝'])),
-    pillar: readCell(row, ['内容支柱', 'pillar', '主题'], '未分类'),
-    campaign: readCell(row, ['活动', 'campaign', '系列'], '导入数据'),
-    tags: splitTags(readCell(row, ['标签', 'tags', '关键词'], '')),
-    audience: readCell(row, ['受众', 'audience', '目标人群'], '个人创作者'),
-    hook: readCell(row, ['钩子', 'hook', '开头'], title),
-    intent: normalizeIntent(readCell(row, ['意图', 'intent', '目标'], 'growth')),
+    hour: Math.min(23, Math.max(0, Math.round(toNumber(readMappedCell(row, mappings, 'hour', '20'))))),
+    views: toNumber(readMappedCell(row, mappings, 'views')),
+    likes: toNumber(readMappedCell(row, mappings, 'likes')),
+    comments: toNumber(readMappedCell(row, mappings, 'comments')),
+    shares: toNumber(readMappedCell(row, mappings, 'shares')),
+    saves: toNumber(readMappedCell(row, mappings, 'saves')),
+    followersGained: toNumber(readMappedCell(row, mappings, 'followersGained')),
+    pillar: readMappedCell(row, mappings, 'pillar', '未分类'),
+    campaign: readMappedCell(row, mappings, 'campaign', '导入数据'),
+    tags: splitTags(readMappedCell(row, mappings, 'tags', '')),
+    audience: readMappedCell(row, mappings, 'audience', '个人创作者'),
+    hook: readMappedCell(row, mappings, 'hook', title),
+    intent: normalizeIntent(readMappedCell(row, mappings, 'intent', 'growth')),
   }
 
   const duplicate = existingKeys.has(contentKey(item))
@@ -542,6 +646,7 @@ function OverlookApp() {
   const [draft, setDraft] = useState<ContentDraft>(emptyDraft)
   const [competitorDraft, setCompetitorDraft] = useState<CompetitorDraft>(emptyCompetitorDraft)
   const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null)
+  const [pendingRestore, setPendingRestore] = useState<RestorePreview | null>(null)
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [offlineReady, setOfflineReady] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -675,10 +780,26 @@ function OverlookApp() {
   }, [competitors, summaries])
 
   const latestSnapshots = useMemo(() => {
-    return competitorSnapshots.slice(0, 8).map((snapshot) => ({
-      ...snapshot,
-      competitor: competitors.find((competitor) => competitor.id === snapshot.competitorId),
-    }))
+    const grouped = new Map<string, CompetitorSnapshot[]>()
+    competitorSnapshots.forEach((snapshot) => {
+      grouped.set(snapshot.competitorId, [...(grouped.get(snapshot.competitorId) ?? []), snapshot])
+    })
+
+    return [...grouped.values()]
+      .map((snapshots) => {
+        const ordered = [...snapshots].sort((a, b) => snapshotTimestamp(b) - snapshotTimestamp(a))
+        const latest = ordered[0]
+        const previous = ordered[1]
+        return {
+          ...latest,
+          competitor: competitors.find((competitor) => competitor.id === latest.competitorId),
+          followerDelta: previous ? latest.followers - previous.followers : null,
+          avgViewsDelta: previous ? latest.avgViews - previous.avgViews : null,
+          engagementDelta: previous ? latest.engagementRate - previous.engagementRate : null,
+        }
+      })
+      .sort((a, b) => snapshotTimestamp(b) - snapshotTimestamp(a))
+      .slice(0, 8)
   }, [competitorSnapshots, competitors])
 
   const repurposeCards = useMemo(() => {
@@ -717,8 +838,10 @@ function OverlookApp() {
       skipEmptyLines: true,
       complete: (results) => {
         const existingKeys = new Set(normalizedContent.map(contentKey))
+        const headers = results.meta.fields?.filter(Boolean) ?? Object.keys(results.data[0] ?? {})
+        const { mappings, ignoredColumns } = buildImportMapping(headers)
         const parsedRows = results.data.map((row, index) => {
-          const parsed = parseImportedRow(row, index, existingKeys)
+          const parsed = parseImportedRow(row, index, existingKeys, mappings)
           if (parsed.item && !parsed.duplicate) {
             existingKeys.add(contentKey(parsed.item))
           }
@@ -738,6 +861,8 @@ function OverlookApp() {
             totalRows: results.data.length,
             duplicateCount: parsedRows.filter((row) => row.duplicate).length,
             invalidCount: parsedRows.filter((row) => !row.item).length,
+            mappings,
+            ignoredColumns,
           })
           return
         }
@@ -749,6 +874,8 @@ function OverlookApp() {
           totalRows: results.data.length,
           duplicateCount: parsedRows.filter((row) => row.duplicate).length,
           invalidCount: parsedRows.filter((row) => !row.item).length,
+          mappings,
+          ignoredColumns,
         })
         toast.info(`已解析 ${accepted.length} 条可导入内容`)
       },
@@ -763,6 +890,19 @@ function OverlookApp() {
     setContent((current) => [...pendingImport.accepted, ...current])
     toast.success(`已导入 ${pendingImport.accepted.length} 条内容`)
     setPendingImport(null)
+  }
+
+  const confirmRestoreWorkspace = () => {
+    if (!pendingRestore) return
+    const snapshot = pendingRestore.snapshot
+    setContent(snapshot.content.map(normalizeContentItem))
+    setAccounts(snapshot.accounts)
+    setGoal(snapshot.goal)
+    setCompetitors(snapshot.competitors)
+    setCompetitorSnapshots(Array.isArray(snapshot.competitorSnapshots) ? snapshot.competitorSnapshots : [])
+    setCalendar(Array.isArray(snapshot.calendar) ? snapshot.calendar : [])
+    setPendingRestore(null)
+    toast.success('工作区已恢复')
   }
 
   const handleAddContent = (event: FormEvent<HTMLFormElement>) => {
@@ -835,13 +975,26 @@ function OverlookApp() {
           toast.error('备份文件结构不正确')
           return
         }
-        setContent(parsed.content.map(normalizeContentItem))
-        setAccounts(parsed.accounts)
-        setGoal(parsed.goal)
-        setCompetitors(parsed.competitors)
-        setCompetitorSnapshots(Array.isArray(parsed.competitorSnapshots) ? parsed.competitorSnapshots : [])
-        setCalendar(Array.isArray(parsed.calendar) ? parsed.calendar : [])
-        toast.success('工作区已恢复')
+        const snapshot: WorkspaceSnapshot = {
+          ...parsed,
+          content: parsed.content.map(normalizeContentItem),
+          competitorSnapshots: Array.isArray(parsed.competitorSnapshots) ? parsed.competitorSnapshots : [],
+          calendar: Array.isArray(parsed.calendar) ? parsed.calendar : [],
+        }
+        setPendingRestore({
+          filename: file.name,
+          snapshot,
+          version: snapshot.version,
+          exportedAt: snapshot.exportedAt,
+          metrics: [
+            { label: '内容', current: normalizedContent.length, incoming: snapshot.content.length },
+            { label: '账号', current: accounts.length, incoming: snapshot.accounts.length },
+            { label: '竞品', current: competitors.length, incoming: snapshot.competitors.length },
+            { label: '快照', current: competitorSnapshots.length, incoming: snapshot.competitorSnapshots.length },
+            { label: '排期', current: calendar.length, incoming: snapshot.calendar.length },
+          ],
+        })
+        toast.info('已读取备份，确认后恢复')
       } catch {
         toast.error('备份文件解析失败')
       }
@@ -932,11 +1085,13 @@ function OverlookApp() {
   }
 
   const captureCompetitorSnapshots = () => {
-    const today = new Date().toISOString().slice(0, 10)
+    const capturedAt = new Date().toISOString()
+    const today = capturedAt.slice(0, 10)
     const snapshots = competitors.map((competitor) => ({
       id: makeId('snapshot'),
       competitorId: competitor.id,
       date: today,
+      capturedAt,
       followers: competitor.followers,
       avgViews: competitor.avgViews,
       engagementRate: competitor.engagementRate,
@@ -1515,10 +1670,20 @@ function OverlookApp() {
                 {latestSnapshots.map((snapshot) => (
                   <div className="snapshot-card" key={snapshot.id}>
                     <strong>{snapshot.competitor?.name ?? '已删除账号'}</strong>
-                    <span>{snapshot.date}</span>
                     <small>
-                      {formatNumber(snapshot.followers)} 粉丝 · {formatNumber(snapshot.avgViews)} 均播 · {formatPercent(snapshot.engagementRate)}
+                      {snapshot.date} · {formatNumber(snapshot.followers)} 粉丝 · {formatNumber(snapshot.avgViews)} 均播
                     </small>
+                    <em
+                      className={
+                        snapshot.avgViewsDelta === null
+                          ? 'snapshot-trend'
+                          : snapshot.avgViewsDelta >= 0
+                            ? 'snapshot-trend snapshot-trend--positive'
+                            : 'snapshot-trend snapshot-trend--negative'
+                      }
+                    >
+                      互动 {formatPercent(snapshot.engagementRate)} · 均播较上次 {formatSignedDelta(snapshot.avgViewsDelta, formatNumber)}
+                    </em>
                   </div>
                 ))}
               </div>
@@ -1619,6 +1784,9 @@ function OverlookApp() {
       </main>
 
       {pendingImport && <ImportPreviewModal preview={pendingImport} onCancel={() => setPendingImport(null)} onConfirm={confirmImport} />}
+      {pendingRestore && (
+        <RestorePreviewModal preview={pendingRestore} onCancel={() => setPendingRestore(null)} onConfirm={confirmRestoreWorkspace} />
+      )}
 
       <ReportSheet
         refNode={reportRef}
@@ -1672,6 +1840,9 @@ function HealthRow({ ok, label }: { ok: boolean; label: string }) {
 }
 
 function ImportPreviewModal({ preview, onCancel, onConfirm }: { preview: ImportPreview; onCancel: () => void; onConfirm: () => void }) {
+  const recognizedCount = preview.mappings.filter((mapping) => mapping.source).length
+  const missingRequired = preview.mappings.filter((mapping) => mapping.required && !mapping.source)
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="CSV 导入预览">
       <section className="modal-panel">
@@ -1693,6 +1864,34 @@ function ImportPreviewModal({ preview, onCancel, onConfirm }: { preview: ImportP
             <strong>{preview.invalidCount}</strong>
             <span>无效</span>
           </div>
+        </div>
+        <div className="mapping-summary" aria-label="CSV 列识别结果">
+          <div>
+            <strong>{recognizedCount}</strong>
+            <span>已识别字段</span>
+          </div>
+          <div>
+            <strong>{preview.ignoredColumns.length}</strong>
+            <span>忽略列</span>
+          </div>
+          <div className={missingRequired.length > 0 ? 'mapping-warning' : ''}>
+            <strong>{missingRequired.length}</strong>
+            <span>缺少必填</span>
+          </div>
+        </div>
+        <div className="mapping-grid">
+          {preview.mappings.map((mapping) => (
+            <span className={mapping.source ? 'mapping-chip' : 'mapping-chip mapping-chip--missing'} key={mapping.field}>
+              {mapping.label}
+              <em>{mapping.source ?? (mapping.required ? '未匹配' : '默认')}</em>
+            </span>
+          ))}
+          {preview.ignoredColumns.slice(0, 6).map((column) => (
+            <span className="mapping-chip mapping-chip--ignored" key={`ignored-${column}`}>
+              未使用
+              <em>{column}</em>
+            </span>
+          ))}
         </div>
         <div className="preview-list">
           {preview.accepted.slice(0, 5).map((item) => (
@@ -1716,6 +1915,42 @@ function ImportPreviewModal({ preview, onCancel, onConfirm }: { preview: ImportP
           </button>
           <button className="action-button" onClick={onConfirm} disabled={preview.accepted.length === 0}>
             确认导入
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function RestorePreviewModal({ preview, onCancel, onConfirm }: { preview: RestorePreview; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="工作区恢复预览">
+      <section className="modal-panel">
+        <SectionTitle icon={<ShieldCheck size={18} />} title="恢复前确认" action={preview.filename} />
+        <div className="restore-meta">
+          <span>备份版本 v{preview.version}</span>
+          <span>{preview.exportedAt ? new Date(preview.exportedAt).toLocaleString('zh-CN') : '未记录导出时间'}</span>
+        </div>
+        <div className="restore-grid">
+          {preview.metrics.map((metric) => (
+            <div className="restore-card" key={metric.label}>
+              <span>{metric.label}</span>
+              <strong>
+                {plainNumber.format(metric.current)} <em>→</em> {plainNumber.format(metric.incoming)}
+              </strong>
+            </div>
+          ))}
+        </div>
+        <div className="preview-row preview-row--warning">
+          <strong>确认后会替换当前本地工作区</strong>
+          <span>建议先导出当前工作区备份；取消不会改动任何本地数据。</span>
+        </div>
+        <div className="modal-actions">
+          <button className="action-button action-button--ghost" onClick={onCancel}>
+            取消
+          </button>
+          <button className="action-button" onClick={onConfirm}>
+            确认恢复
           </button>
         </div>
       </section>
