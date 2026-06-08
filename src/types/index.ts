@@ -44,6 +44,8 @@ export interface Goal {
   targetSponsorLeads: number
 }
 
+export type CompetitorScanSource = 'local-estimate' | 'manual' | 'sample' | 'external'
+
 export interface Competitor {
   id: string
   platform: Platform
@@ -52,6 +54,9 @@ export interface Competitor {
   avgViews: number
   engagementRate: number
   angle: string
+  scanSource?: CompetitorScanSource
+  scanConfidence?: number
+  scannedAt?: string
 }
 
 export interface CompetitorSnapshot {

@@ -247,6 +247,9 @@ const emptyCompetitorDraft: CompetitorDraft = {
   avgViews: 0,
   engagementRate: 0,
   angle: '',
+  scanSource: 'manual',
+  scanConfidence: 0,
+  scannedAt: '',
 }
 
 const statusLabel: Record<CalendarItem['status'], string> = {
@@ -282,6 +285,13 @@ const scanProfiles: Record<Platform, { followerBase: number; viewRatio: number; 
   },
 }
 
+const scanSourceLabel: Record<NonNullable<Competitor['scanSource']>, string> = {
+  'local-estimate': '本地估算',
+  manual: '手动修正',
+  sample: '示例数据',
+  external: '外部数据',
+}
+
 const compactNumber = new Intl.NumberFormat('zh-CN', {
   notation: 'compact',
   maximumFractionDigits: 1,
@@ -307,6 +317,16 @@ function formatSignedDelta(value: number | null, formatter: (input: number) => s
   if (value === 0) return '持平'
   const sign = value > 0 ? '+' : '-'
   return `${sign}${formatter(Math.abs(value))}`
+}
+
+function formatScanMeta(competitor: Pick<Competitor, 'scanSource' | 'scanConfidence'>) {
+  const source = scanSourceLabel[competitor.scanSource ?? 'manual']
+  return competitor.scanConfidence ? `${source} · ${competitor.scanConfidence}%` : source
+}
+
+function formatScanTime(value?: string) {
+  if (!value) return '未记录更新时间'
+  return `更新 ${new Date(value).toLocaleDateString('zh-CN')}`
 }
 
 function sumBy<T>(items: T[], pick: (item: T) => number) {
@@ -348,6 +368,7 @@ function estimateCompetitorFromHandle(platform: Platform, rawName: string): Comp
   const followers = Math.round((profile.followerBase * followerLift + (seed % 9000)) / 100) * 100
   const avgViews = Math.round((followers * (profile.viewRatio + (seed % 19) / 100)) / 100) * 100
   const engagementRate = Number((profile.engagementBase + ((seed % 41) - 14) / 10).toFixed(1))
+  const scanConfidence = 62 + (seed % 19)
   return {
     platform,
     name,
@@ -355,6 +376,9 @@ function estimateCompetitorFromHandle(platform: Platform, rawName: string): Comp
     avgViews,
     engagementRate: Math.max(1, engagementRate),
     angle: profile.angles[seed % profile.angles.length],
+    scanSource: 'local-estimate',
+    scanConfidence,
+    scannedAt: new Date().toISOString(),
   }
 }
 
@@ -737,11 +761,12 @@ function OverlookApp() {
     scanRequestRef.current = requestId
     const timer = window.setTimeout(() => {
       if (scanRequestRef.current !== requestId) return
+      const estimatedDraft = estimateCompetitorFromHandle(platform, name)
       setCompetitorDraft((current) => {
         if (current.name.trim() !== name || current.platform !== platform) return current
-        return { ...current, ...estimateCompetitorFromHandle(platform, name) }
+        return { ...current, ...estimatedDraft }
       })
-      setCompetitorScan({ status: 'ready', message: '已自动补全，本地估算可手动修正' })
+      setCompetitorScan({ status: 'ready', message: `本地估算 · 可信度 ${estimatedDraft.scanConfidence}%` })
     }, 650)
 
     return () => window.clearTimeout(timer)
@@ -932,6 +957,18 @@ function OverlookApp() {
     setLastWorkspaceUndo({ label, capturedAt: new Date().toISOString(), snapshot: createWorkspaceSnapshot() })
   }
 
+  const markCompetitorDraftManual = (patch: Partial<CompetitorDraft>) => {
+    scanRequestRef.current += 1
+    setCompetitorDraft((current) => ({
+      ...current,
+      ...patch,
+      scanSource: 'manual',
+      scanConfidence: 100,
+      scannedAt: new Date().toISOString(),
+    }))
+    setCompetitorScan({ status: 'manual', message: '手动修正 · 以你填写为准' })
+  }
+
   const restoreLastWorkspaceUndo = () => {
     if (!lastWorkspaceUndo) return
     const currentSnapshot = createWorkspaceSnapshot()
@@ -1036,7 +1073,14 @@ function OverlookApp() {
       competitorDraft.followers > 0 || competitorDraft.avgViews > 0 || competitorDraft.engagementRate > 0 || competitorDraft.angle.trim()
         ? competitorDraft
         : estimateCompetitorFromHandle(competitorDraft.platform, competitorDraft.name)
-    setCompetitors((current) => [{ ...scannedDraft, id: makeId('competitor'), name: scannedDraft.name.trim() }, ...current])
+    const preparedDraft: CompetitorDraft = {
+      ...scannedDraft,
+      name: scannedDraft.name.trim(),
+      scanSource: scannedDraft.scanSource ?? 'manual',
+      scanConfidence: scannedDraft.scanConfidence ?? 100,
+      scannedAt: scannedDraft.scannedAt || new Date().toISOString(),
+    }
+    setCompetitors((current) => [{ ...preparedDraft, id: makeId('competitor') }, ...current])
     setCompetitorDraft(emptyCompetitorDraft)
     setCompetitorScan({ status: 'idle', message: '输入账号后自动扫描' })
     toast.success('对标账号已加入')
@@ -1680,7 +1724,17 @@ function OverlookApp() {
                   <select
                     value={competitorDraft.platform}
                     onChange={(event) => {
-                      setCompetitorDraft({ ...competitorDraft, platform: event.target.value as Platform })
+                      setCompetitorDraft({
+                        ...competitorDraft,
+                        platform: event.target.value as Platform,
+                        followers: 0,
+                        avgViews: 0,
+                        engagementRate: 0,
+                        angle: '',
+                        scanSource: 'manual',
+                        scanConfidence: 0,
+                        scannedAt: '',
+                      })
                       if (competitorDraft.name.trim()) setCompetitorScan({ status: 'scanning', message: '正在扫描账号画像' })
                     }}
                   >
@@ -1695,7 +1749,17 @@ function OverlookApp() {
                     value={competitorDraft.name}
                     placeholder="@handle 或账号名"
                     onChange={(event) => {
-                      setCompetitorDraft({ ...competitorDraft, name: event.target.value })
+                      setCompetitorDraft({
+                        ...competitorDraft,
+                        name: event.target.value,
+                        followers: 0,
+                        avgViews: 0,
+                        engagementRate: 0,
+                        angle: '',
+                        scanSource: 'manual',
+                        scanConfidence: 0,
+                        scannedAt: '',
+                      })
                       setCompetitorScan(
                         event.target.value.trim()
                           ? { status: 'scanning', message: '正在扫描账号画像' }
@@ -1711,9 +1775,7 @@ function OverlookApp() {
                     min="0"
                     value={competitorDraft.followers}
                     onChange={(event) => {
-                      setCompetitorDraft({ ...competitorDraft, followers: toNumber(event.target.value) })
-                      scanRequestRef.current += 1
-                      setCompetitorScan({ status: 'manual', message: '已手动调整扫描结果' })
+                      markCompetitorDraftManual({ followers: toNumber(event.target.value) })
                     }}
                   />
                 </label>
@@ -1724,9 +1786,7 @@ function OverlookApp() {
                     min="0"
                     value={competitorDraft.avgViews}
                     onChange={(event) => {
-                      setCompetitorDraft({ ...competitorDraft, avgViews: toNumber(event.target.value) })
-                      scanRequestRef.current += 1
-                      setCompetitorScan({ status: 'manual', message: '已手动调整扫描结果' })
+                      markCompetitorDraftManual({ avgViews: toNumber(event.target.value) })
                     }}
                   />
                 </label>
@@ -1738,9 +1798,7 @@ function OverlookApp() {
                     step="0.1"
                     value={competitorDraft.engagementRate}
                     onChange={(event) => {
-                      setCompetitorDraft({ ...competitorDraft, engagementRate: toNumber(event.target.value) })
-                      scanRequestRef.current += 1
-                      setCompetitorScan({ status: 'manual', message: '已手动调整扫描结果' })
+                      markCompetitorDraftManual({ engagementRate: toNumber(event.target.value) })
                     }}
                   />
                 </label>
@@ -1749,9 +1807,7 @@ function OverlookApp() {
                   <input
                     value={competitorDraft.angle}
                     onChange={(event) => {
-                      setCompetitorDraft({ ...competitorDraft, angle: event.target.value })
-                      scanRequestRef.current += 1
-                      setCompetitorScan({ status: 'manual', message: '已手动调整扫描结果' })
+                      markCompetitorDraftManual({ angle: event.target.value })
                     }}
                   />
                 </label>
@@ -1781,7 +1837,9 @@ function OverlookApp() {
                       <tr key={row.id}>
                         <td>
                           <strong>{row.name}</strong>
-                          <small>{formatNumber(row.followers)} 粉丝</small>
+                          <small>
+                            {formatNumber(row.followers)} 粉丝 · {formatScanMeta(row)}
+                          </small>
                         </td>
                         <td>{row.platform}</td>
                         <td className={row.avgViewGap >= 0 ? 'positive' : 'negative'}>{formatNumber(Math.abs(row.avgViewGap))}</td>
@@ -1789,7 +1847,10 @@ function OverlookApp() {
                           {row.engagementGap >= 0 ? '+' : '-'}
                           {formatPercent(Math.abs(row.engagementGap))}
                         </td>
-                        <td>{row.angle}</td>
+                        <td>
+                          <strong>{row.angle}</strong>
+                          <small>{formatScanTime(row.scannedAt)}</small>
+                        </td>
                         <td>
                           <button
                             className="icon-button icon-button--danger"

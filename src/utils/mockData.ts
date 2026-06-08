@@ -190,6 +190,9 @@ export const seedCompetitors: Competitor[] = [
     avgViews: 36000,
     engagementRate: 18.4,
     angle: '模板下载 + 个人经历',
+    scanSource: 'sample',
+    scanConfidence: 86,
+    scannedAt: '2026-06-01T09:00:00.000Z',
   },
   {
     id: 'comp-002',
@@ -199,6 +202,9 @@ export const seedCompetitors: Competitor[] = [
     avgViews: 52000,
     engagementRate: 9.6,
     angle: '项目拆解 + 代码演示',
+    scanSource: 'sample',
+    scanConfidence: 84,
+    scannedAt: '2026-06-01T09:00:00.000Z',
   },
   {
     id: 'comp-003',
@@ -208,6 +214,9 @@ export const seedCompetitors: Competitor[] = [
     avgViews: 76000,
     engagementRate: 13.1,
     angle: '强钩子 + 三段式口播',
+    scanSource: 'sample',
+    scanConfidence: 82,
+    scannedAt: '2026-06-01T09:00:00.000Z',
   },
 ]
 

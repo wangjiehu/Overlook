@@ -151,8 +151,20 @@ async function main() {
         status: document.querySelector('.section-title span:last-child')?.textContent ?? '',
       }
     })
-    if (!scannedDraft.account || scannedDraft.followers <= 0 || scannedDraft.avgViews <= 0 || scannedDraft.engagementRate <= 0 || !scannedDraft.angle) {
+    if (
+      !scannedDraft.account ||
+      scannedDraft.followers <= 0 ||
+      scannedDraft.avgViews <= 0 ||
+      scannedDraft.engagementRate <= 0 ||
+      !scannedDraft.angle ||
+      !scannedDraft.status.includes('可信度')
+    ) {
       throw new Error(`competitor auto scan failed: ${JSON.stringify(scannedDraft)}`)
+    }
+    await desktop.locator('.benchmark-form button[type="submit"]').click()
+    const addedCompetitorText = await desktop.locator('.data-table tbody tr').first().textContent()
+    if (!addedCompetitorText?.includes('本地估算')) {
+      throw new Error(`competitor scan source missing: ${addedCompetitorText}`)
     }
 
     await desktop.locator('.tab-button[data-view="content"]').click()

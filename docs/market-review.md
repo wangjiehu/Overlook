@@ -18,7 +18,7 @@ Date: 2026-06-08
 - Added best-time slots per platform, based on local content history with platform fallbacks.
 - Added a weekly calendar generator, platform filtering, experiment objectives, tracking metrics, status cycling and copy-to-clipboard.
 - Added competitor benchmarks with average-view and engagement-rate gaps, plus snapshot capture and previous-snapshot deltas for trend review.
-- Added account-input auto enrichment with clear local-estimate labeling, keeping the flow ready for a real backend or official data provider later.
+- Added account-input auto enrichment with local-estimate source, confidence and timestamp metadata, keeping the flow ready for a real backend or official data provider later.
 - Added campaign and content-pillar summaries, content tags, audience, hook and intent fields to turn raw data into repeatable content systems.
 - Added CSV import preview with automatic column mapping, ignored-column visibility, duplicate handling and invalid-row handling.
 - Added full workspace backup and restore for the browser-local data model, with a restore-before-overwrite diff preview.
