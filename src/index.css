@@ -1097,6 +1097,40 @@ select:focus {
   margin-bottom: 10px;
 }
 
+.undo-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 10px;
+  border: 1px solid rgba(0, 122, 255, 0.16);
+  border-radius: var(--radius);
+  background: #f2f8ff;
+  padding: 8px;
+}
+
+.undo-card > div {
+  min-width: 0;
+}
+
+.undo-card strong,
+.undo-card span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.undo-card strong {
+  font-size: 12px;
+}
+
+.undo-card span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .toggle-row {
   display: flex;
   grid-template-columns: none;

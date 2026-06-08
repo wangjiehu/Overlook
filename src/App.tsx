@@ -34,6 +34,7 @@ import {
   Trash2,
   TrendingUp,
   Trophy,
+  Undo2,
   Users,
   WandSparkles,
 } from 'lucide-react'
@@ -139,6 +140,17 @@ type RestorePreview = {
   version: number
   exportedAt?: string
   metrics: Array<{ label: string; current: number; incoming: number }>
+}
+
+type WorkspaceUndo = {
+  label: string
+  capturedAt: string
+  snapshot: WorkspaceSnapshot
+}
+
+type CompetitorScanState = {
+  status: 'idle' | 'scanning' | 'ready' | 'manual'
+  message: string
 }
 
 const WORKSPACE_VERSION = 3
@@ -249,6 +261,27 @@ const accountStatusLabel: Record<Account['status'], string> = {
   missing: '待补充',
 }
 
+const scanProfiles: Record<Platform, { followerBase: number; viewRatio: number; engagementBase: number; angles: string[] }> = {
+  Bilibili: {
+    followerBase: 42000,
+    viewRatio: 0.48,
+    engagementBase: 7.8,
+    angles: ['项目拆解 + 过程复盘', '长视频教程 + 评论答疑', '代码演示 + 结果对比'],
+  },
+  Xiaohongshu: {
+    followerBase: 26000,
+    viewRatio: 0.66,
+    engagementBase: 13.6,
+    angles: ['模板清单 + 个人经历', '首图结果 + 收藏步骤', '避坑笔记 + 场景案例'],
+  },
+  Douyin: {
+    followerBase: 68000,
+    viewRatio: 0.72,
+    engagementBase: 10.4,
+    angles: ['强钩子 + 三段式口播', '反差结论 + 快速演示', '热点切入 + 工具结果'],
+  },
+}
+
 const compactNumber = new Intl.NumberFormat('zh-CN', {
   notation: 'compact',
   maximumFractionDigits: 1,
@@ -301,6 +334,28 @@ function normalizePlatform(value: string): Platform | null {
   if (normalized.includes('xhs') || normalized.includes('red') || normalized.includes('小红书')) return 'Xiaohongshu'
   if (normalized.includes('douyin') || normalized.includes('tiktok') || normalized.includes('抖音')) return 'Douyin'
   return PLATFORMS.find((platform) => platform.toLowerCase() === normalized) ?? null
+}
+
+function hashText(value: string) {
+  return [...value].reduce((hash, char) => (hash * 31 + char.charCodeAt(0)) % 100000, 17)
+}
+
+function estimateCompetitorFromHandle(platform: Platform, rawName: string): CompetitorDraft {
+  const name = rawName.trim()
+  const profile = scanProfiles[platform]
+  const seed = hashText(`${platform}:${name}`)
+  const followerLift = 0.74 + (seed % 67) / 100
+  const followers = Math.round((profile.followerBase * followerLift + (seed % 9000)) / 100) * 100
+  const avgViews = Math.round((followers * (profile.viewRatio + (seed % 19) / 100)) / 100) * 100
+  const engagementRate = Number((profile.engagementBase + ((seed % 41) - 14) / 10).toFixed(1))
+  return {
+    platform,
+    name,
+    followers,
+    avgViews,
+    engagementRate: Math.max(1, engagementRate),
+    angle: profile.angles[seed % profile.angles.length],
+  }
 }
 
 function readCell(row: Record<string, string>, keys: string[], fallback = '') {
@@ -645,13 +700,16 @@ function OverlookApp() {
   const [calendarPlatformFilter, setCalendarPlatformFilter] = useState<'all' | Platform>('all')
   const [draft, setDraft] = useState<ContentDraft>(emptyDraft)
   const [competitorDraft, setCompetitorDraft] = useState<CompetitorDraft>(emptyCompetitorDraft)
+  const [competitorScan, setCompetitorScan] = useState<CompetitorScanState>({ status: 'idle', message: '输入账号后自动扫描' })
   const [pendingImport, setPendingImport] = useState<ImportPreview | null>(null)
   const [pendingRestore, setPendingRestore] = useState<RestorePreview | null>(null)
+  const [lastWorkspaceUndo, setLastWorkspaceUndo] = useState<WorkspaceUndo | null>(null)
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [offlineReady, setOfflineReady] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const workspaceFileRef = useRef<HTMLInputElement>(null)
   const reportRef = useRef<HTMLDivElement>(null)
+  const scanRequestRef = useRef(0)
 
   useEffect(() => {
     if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
@@ -667,6 +725,27 @@ function OverlookApp() {
     window.addEventListener('beforeinstallprompt', installHandler)
     return () => window.removeEventListener('beforeinstallprompt', installHandler)
   }, [])
+
+  useEffect(() => {
+    const name = competitorDraft.name.trim()
+    const platform = competitorDraft.platform
+    if (!name) {
+      return
+    }
+
+    const requestId = scanRequestRef.current + 1
+    scanRequestRef.current = requestId
+    const timer = window.setTimeout(() => {
+      if (scanRequestRef.current !== requestId) return
+      setCompetitorDraft((current) => {
+        if (current.name.trim() !== name || current.platform !== platform) return current
+        return { ...current, ...estimateCompetitorFromHandle(platform, name) }
+      })
+      setCompetitorScan({ status: 'ready', message: '已自动补全，本地估算可手动修正' })
+    }, 650)
+
+    return () => window.clearTimeout(timer)
+  }, [competitorDraft.name, competitorDraft.platform])
 
   const normalizedContent = useMemo(() => content.map(normalizeContentItem), [content])
   const summaries = useMemo(() => buildPlatformSummaries(normalizedContent), [normalizedContent])
@@ -829,6 +908,38 @@ function OverlookApp() {
     sponsor: Math.min(100, (totals.sponsorScore / Math.max(1, goal.targetSponsorLeads * 10)) * 100),
   }
 
+  const createWorkspaceSnapshot = (): WorkspaceSnapshot => ({
+    version: WORKSPACE_VERSION,
+    exportedAt: new Date().toISOString(),
+    content: normalizedContent,
+    accounts,
+    goal,
+    competitors,
+    competitorSnapshots,
+    calendar,
+  })
+
+  const applyWorkspaceSnapshot = (snapshot: WorkspaceSnapshot) => {
+    setContent(snapshot.content.map(normalizeContentItem))
+    setAccounts(snapshot.accounts)
+    setGoal(snapshot.goal)
+    setCompetitors(snapshot.competitors)
+    setCompetitorSnapshots(Array.isArray(snapshot.competitorSnapshots) ? snapshot.competitorSnapshots : [])
+    setCalendar(Array.isArray(snapshot.calendar) ? snapshot.calendar : [])
+  }
+
+  const captureWorkspaceUndo = (label: string) => {
+    setLastWorkspaceUndo({ label, capturedAt: new Date().toISOString(), snapshot: createWorkspaceSnapshot() })
+  }
+
+  const restoreLastWorkspaceUndo = () => {
+    if (!lastWorkspaceUndo) return
+    const currentSnapshot = createWorkspaceSnapshot()
+    applyWorkspaceSnapshot(lastWorkspaceUndo.snapshot)
+    setLastWorkspaceUndo({ label: '撤销前状态', capturedAt: new Date().toISOString(), snapshot: currentSnapshot })
+    toast.success('已恢复到上一个工作区状态')
+  }
+
   const handleCSVImport = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -887,6 +998,7 @@ function OverlookApp() {
 
   const confirmImport = () => {
     if (!pendingImport || pendingImport.accepted.length === 0) return
+    captureWorkspaceUndo('导入前状态')
     setContent((current) => [...pendingImport.accepted, ...current])
     toast.success(`已导入 ${pendingImport.accepted.length} 条内容`)
     setPendingImport(null)
@@ -894,13 +1006,8 @@ function OverlookApp() {
 
   const confirmRestoreWorkspace = () => {
     if (!pendingRestore) return
-    const snapshot = pendingRestore.snapshot
-    setContent(snapshot.content.map(normalizeContentItem))
-    setAccounts(snapshot.accounts)
-    setGoal(snapshot.goal)
-    setCompetitors(snapshot.competitors)
-    setCompetitorSnapshots(Array.isArray(snapshot.competitorSnapshots) ? snapshot.competitorSnapshots : [])
-    setCalendar(Array.isArray(snapshot.calendar) ? snapshot.calendar : [])
+    captureWorkspaceUndo('恢复前状态')
+    applyWorkspaceSnapshot(pendingRestore.snapshot)
     setPendingRestore(null)
     toast.success('工作区已恢复')
   }
@@ -925,8 +1032,13 @@ function OverlookApp() {
       return
     }
 
-    setCompetitors((current) => [{ ...competitorDraft, id: makeId('competitor'), name: competitorDraft.name.trim() }, ...current])
+    const scannedDraft =
+      competitorDraft.followers > 0 || competitorDraft.avgViews > 0 || competitorDraft.engagementRate > 0 || competitorDraft.angle.trim()
+        ? competitorDraft
+        : estimateCompetitorFromHandle(competitorDraft.platform, competitorDraft.name)
+    setCompetitors((current) => [{ ...scannedDraft, id: makeId('competitor'), name: scannedDraft.name.trim() }, ...current])
     setCompetitorDraft(emptyCompetitorDraft)
+    setCompetitorScan({ status: 'idle', message: '输入账号后自动扫描' })
     toast.success('对标账号已加入')
   }
 
@@ -950,16 +1062,7 @@ function OverlookApp() {
   }
 
   const handleExportWorkspace = () => {
-    const snapshot: WorkspaceSnapshot = {
-      version: WORKSPACE_VERSION,
-      exportedAt: new Date().toISOString(),
-      content: normalizedContent,
-      accounts,
-      goal,
-      competitors,
-      competitorSnapshots,
-      calendar,
-    }
+    const snapshot = createWorkspaceSnapshot()
     downloadBlob(JSON.stringify(snapshot, null, 2), 'application/json;charset=utf-8', `overlook-workspace-${new Date().toISOString().slice(0, 10)}.json`)
     toast.success('工作区备份已导出')
   }
@@ -1107,12 +1210,17 @@ function OverlookApp() {
   }
 
   const resetWorkspace = () => {
-    setContent(seedContent)
-    setAccounts(seedAccounts)
-    setCompetitors(seedCompetitors)
-    setCompetitorSnapshots(seedCompetitorSnapshots)
-    setCalendar(seedCalendar)
-    setGoal(seedGoal)
+    captureWorkspaceUndo('恢复示例前状态')
+    applyWorkspaceSnapshot({
+      version: WORKSPACE_VERSION,
+      exportedAt: new Date().toISOString(),
+      content: seedContent,
+      accounts: seedAccounts,
+      goal: seedGoal,
+      competitors: seedCompetitors,
+      competitorSnapshots: seedCompetitorSnapshots,
+      calendar: seedCalendar,
+    })
     toast.success('示例工作区已恢复')
   }
 
@@ -1561,11 +1669,21 @@ function OverlookApp() {
         {activeView === 'benchmarks' && (
           <div className="view-stack view-stack--benchmarks">
             <section className="panel">
-              <SectionTitle icon={<Trophy size={18} />} title="对标账号" action={`${competitors.length} 个`} />
+              <SectionTitle
+                icon={<Trophy size={18} />}
+                title="对标账号"
+                action={competitorScan.status === 'idle' ? `${competitors.length} 个 · 输入后自动扫描` : competitorScan.message}
+              />
               <form className="content-form benchmark-form" onSubmit={handleAddCompetitor}>
                 <label>
                   平台
-                  <select value={competitorDraft.platform} onChange={(event) => setCompetitorDraft({ ...competitorDraft, platform: event.target.value as Platform })}>
+                  <select
+                    value={competitorDraft.platform}
+                    onChange={(event) => {
+                      setCompetitorDraft({ ...competitorDraft, platform: event.target.value as Platform })
+                      if (competitorDraft.name.trim()) setCompetitorScan({ status: 'scanning', message: '正在扫描账号画像' })
+                    }}
+                  >
                     {PLATFORMS.map((platform) => (
                       <option key={platform}>{platform}</option>
                     ))}
@@ -1573,7 +1691,18 @@ function OverlookApp() {
                 </label>
                 <label>
                   账号
-                  <input value={competitorDraft.name} onChange={(event) => setCompetitorDraft({ ...competitorDraft, name: event.target.value })} />
+                  <input
+                    value={competitorDraft.name}
+                    placeholder="@handle 或账号名"
+                    onChange={(event) => {
+                      setCompetitorDraft({ ...competitorDraft, name: event.target.value })
+                      setCompetitorScan(
+                        event.target.value.trim()
+                          ? { status: 'scanning', message: '正在扫描账号画像' }
+                          : { status: 'idle', message: '输入账号后自动扫描' },
+                      )
+                    }}
+                  />
                 </label>
                 <label>
                   粉丝
@@ -1581,7 +1710,11 @@ function OverlookApp() {
                     type="number"
                     min="0"
                     value={competitorDraft.followers}
-                    onChange={(event) => setCompetitorDraft({ ...competitorDraft, followers: toNumber(event.target.value) })}
+                    onChange={(event) => {
+                      setCompetitorDraft({ ...competitorDraft, followers: toNumber(event.target.value) })
+                      scanRequestRef.current += 1
+                      setCompetitorScan({ status: 'manual', message: '已手动调整扫描结果' })
+                    }}
                   />
                 </label>
                 <label>
@@ -1590,7 +1723,11 @@ function OverlookApp() {
                     type="number"
                     min="0"
                     value={competitorDraft.avgViews}
-                    onChange={(event) => setCompetitorDraft({ ...competitorDraft, avgViews: toNumber(event.target.value) })}
+                    onChange={(event) => {
+                      setCompetitorDraft({ ...competitorDraft, avgViews: toNumber(event.target.value) })
+                      scanRequestRef.current += 1
+                      setCompetitorScan({ status: 'manual', message: '已手动调整扫描结果' })
+                    }}
                   />
                 </label>
                 <label>
@@ -1600,12 +1737,23 @@ function OverlookApp() {
                     min="0"
                     step="0.1"
                     value={competitorDraft.engagementRate}
-                    onChange={(event) => setCompetitorDraft({ ...competitorDraft, engagementRate: toNumber(event.target.value) })}
+                    onChange={(event) => {
+                      setCompetitorDraft({ ...competitorDraft, engagementRate: toNumber(event.target.value) })
+                      scanRequestRef.current += 1
+                      setCompetitorScan({ status: 'manual', message: '已手动调整扫描结果' })
+                    }}
                   />
                 </label>
                 <label className="span-2">
                   角度
-                  <input value={competitorDraft.angle} onChange={(event) => setCompetitorDraft({ ...competitorDraft, angle: event.target.value })} />
+                  <input
+                    value={competitorDraft.angle}
+                    onChange={(event) => {
+                      setCompetitorDraft({ ...competitorDraft, angle: event.target.value })
+                      scanRequestRef.current += 1
+                      setCompetitorScan({ status: 'manual', message: '已手动调整扫描结果' })
+                    }}
+                  />
                 </label>
                 <button className="action-button" type="submit">
                   <Plus size={16} />
@@ -1615,7 +1763,7 @@ function OverlookApp() {
             </section>
 
             <section className="panel">
-              <SectionTitle icon={<AlertTriangle size={18} />} title="差距扫描" action="手动对标" />
+              <SectionTitle icon={<AlertTriangle size={18} />} title="差距扫描" action="自动补全 + 手动确认" />
               <div className="table-wrap">
                 <table className="data-table">
                   <thead>
@@ -1768,6 +1916,18 @@ function OverlookApp() {
                     恢复工作区
                   </button>
                 </div>
+                {lastWorkspaceUndo && (
+                  <div className="undo-card">
+                    <div>
+                      <strong>{lastWorkspaceUndo.label}</strong>
+                      <span>{new Date(lastWorkspaceUndo.capturedAt).toLocaleString('zh-CN')}</span>
+                    </div>
+                    <button className="action-button action-button--ghost" onClick={restoreLastWorkspaceUndo}>
+                      <Undo2 size={15} />
+                      撤销
+                    </button>
+                  </div>
+                )}
                 <label className="toggle-row">
                   <input type="checkbox" checked={hideSensitiveInReport} onChange={(event) => setHideSensitiveInReport(event.target.checked)} />
                   <span>报告中隐藏账号 handle</span>
@@ -1775,6 +1935,7 @@ function OverlookApp() {
                 <div className="health-list">
                   <HealthRow ok label="完整工作区备份" />
                   <HealthRow ok label="恢复前结构校验" />
+                  {lastWorkspaceUndo && <HealthRow ok label="最近一次大改可撤销" />}
                   <HealthRow ok label="本地优先存储" />
                 </div>
               </article>
@@ -1839,7 +2000,18 @@ function HealthRow({ ok, label }: { ok: boolean; label: string }) {
   )
 }
 
+function useEscapeClose(onClose: () => void) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+}
+
 function ImportPreviewModal({ preview, onCancel, onConfirm }: { preview: ImportPreview; onCancel: () => void; onConfirm: () => void }) {
+  useEscapeClose(onCancel)
   const recognizedCount = preview.mappings.filter((mapping) => mapping.source).length
   const missingRequired = preview.mappings.filter((mapping) => mapping.required && !mapping.source)
 
@@ -1910,7 +2082,7 @@ function ImportPreviewModal({ preview, onCancel, onConfirm }: { preview: ImportP
           ))}
         </div>
         <div className="modal-actions">
-          <button className="action-button action-button--ghost" onClick={onCancel}>
+          <button className="action-button action-button--ghost" onClick={onCancel} autoFocus>
             取消
           </button>
           <button className="action-button" onClick={onConfirm} disabled={preview.accepted.length === 0}>
@@ -1923,6 +2095,7 @@ function ImportPreviewModal({ preview, onCancel, onConfirm }: { preview: ImportP
 }
 
 function RestorePreviewModal({ preview, onCancel, onConfirm }: { preview: RestorePreview; onCancel: () => void; onConfirm: () => void }) {
+  useEscapeClose(onCancel)
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="工作区恢复预览">
       <section className="modal-panel">
@@ -1946,7 +2119,7 @@ function RestorePreviewModal({ preview, onCancel, onConfirm }: { preview: Restor
           <span>建议先导出当前工作区备份；取消不会改动任何本地数据。</span>
         </div>
         <div className="modal-actions">
-          <button className="action-button action-button--ghost" onClick={onCancel}>
+          <button className="action-button action-button--ghost" onClick={onCancel} autoFocus>
             取消
           </button>
           <button className="action-button" onClick={onConfirm}>

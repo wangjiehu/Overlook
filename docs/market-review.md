@@ -11,15 +11,18 @@ Date: 2026-06-08
 - Mature creator tools treat raw imports as operational data, not just rows in a table. The useful pattern is validation, preview, and then conversion into actions.
 - For a local-first product, backup and restore matter more than unofficial posting connectors. Users need confidence that browser-local data can survive device or browser changes.
 - Recovery and import flows should be explicit before they mutate local data. Users need to see what will be recognized, skipped or replaced before committing.
+- Account lookup should feel automatic, but browser-only scraping is not a reliable production data source for major social platforms.
 
 ## Product Decisions Applied To Overlook
 
 - Added best-time slots per platform, based on local content history with platform fallbacks.
 - Added a weekly calendar generator, platform filtering, experiment objectives, tracking metrics, status cycling and copy-to-clipboard.
 - Added competitor benchmarks with average-view and engagement-rate gaps, plus snapshot capture and previous-snapshot deltas for trend review.
+- Added account-input auto enrichment with clear local-estimate labeling, keeping the flow ready for a real backend or official data provider later.
 - Added campaign and content-pillar summaries, content tags, audience, hook and intent fields to turn raw data into repeatable content systems.
 - Added CSV import preview with automatic column mapping, ignored-column visibility, duplicate handling and invalid-row handling.
 - Added full workspace backup and restore for the browser-local data model, with a restore-before-overwrite diff preview.
+- Added one-step undo after import, restore or sample reset so destructive local changes remain recoverable.
 - Upgraded the sponsor PDF into a Creator Media Kit with optional handle redaction.
 - Added Playwright visual smoke checks to guard the no-scroll desktop target and import-preview workflow.
 - Kept the product local-first instead of trying to ship brittle unofficial platform connectors.

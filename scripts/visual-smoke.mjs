@@ -8,6 +8,7 @@ import path from 'node:path'
 const outDir = path.join(tmpdir(), 'overlook-visual-smoke')
 mkdirSync(outDir, { recursive: true })
 const importCsvPath = path.join(outDir, 'import-smoke.csv')
+const workspaceJsonPath = path.join(outDir, 'workspace-smoke.json')
 writeFileSync(
   importCsvPath,
   [
@@ -16,6 +17,19 @@ writeFileSync(
     'Bilibili,导入验证内容,长视频,2026-06-01,9,100,10,1,1,2,3,验证,导入测试,测试;验证,个人创作者,重复行,growth',
     '小红书,,图文,not-a-date,10,20,2,0,0,1,0,验证,导入测试,,,,',
   ].join('\n'),
+)
+writeFileSync(
+  workspaceJsonPath,
+  JSON.stringify({
+    version: 3,
+    exportedAt: '2026-06-08T00:00:00.000Z',
+    content: [],
+    accounts: [],
+    goal: { month: '2026-06', targetViews: 1, targetFollowers: 1, targetSponsorLeads: 1 },
+    competitors: [],
+    competitorSnapshots: [],
+    calendar: [],
+  }),
 )
 
 function findFreePort() {
@@ -123,6 +137,24 @@ async function main() {
       await assertDesktopView(desktop, view)
     }
 
+    await desktop.locator('.tab-button[data-view="benchmarks"]').click()
+    await desktop.locator('input[placeholder="@handle 或账号名"]').fill('@auto_scan_demo')
+    await desktop.waitForTimeout(800)
+    const scannedDraft = await desktop.evaluate(() => {
+      const inputs = [...document.querySelectorAll('.benchmark-form input')]
+      return {
+        account: inputs[0]?.value,
+        followers: Number(inputs[1]?.value ?? 0),
+        avgViews: Number(inputs[2]?.value ?? 0),
+        engagementRate: Number(inputs[3]?.value ?? 0),
+        angle: inputs[4]?.value ?? '',
+        status: document.querySelector('.section-title span:last-child')?.textContent ?? '',
+      }
+    })
+    if (!scannedDraft.account || scannedDraft.followers <= 0 || scannedDraft.avgViews <= 0 || scannedDraft.engagementRate <= 0 || !scannedDraft.angle) {
+      throw new Error(`competitor auto scan failed: ${JSON.stringify(scannedDraft)}`)
+    }
+
     await desktop.locator('.tab-button[data-view="content"]').click()
     await desktop.locator('input[accept=".csv,text/csv"]').setInputFiles(importCsvPath)
     await desktop.getByRole('dialog', { name: 'CSV 导入预览' }).waitFor()
@@ -130,7 +162,13 @@ async function main() {
     if (importMetrics.join('|') !== '3|1|1|1') {
       throw new Error(`CSV preview metrics changed: ${JSON.stringify(importMetrics)}`)
     }
-    await desktop.getByRole('button', { name: '取消' }).click()
+    await desktop.keyboard.press('Escape')
+    await desktop.getByRole('dialog', { name: 'CSV 导入预览' }).waitFor({ state: 'hidden' })
+
+    await desktop.locator('input[accept="application/json,.json"]').setInputFiles(workspaceJsonPath)
+    await desktop.getByRole('dialog', { name: '工作区恢复预览' }).waitFor()
+    await desktop.keyboard.press('Escape')
+    await desktop.getByRole('dialog', { name: '工作区恢复预览' }).waitFor({ state: 'hidden' })
 
     await desktop.locator('.tab-button[data-view="overview"]').click()
     await desktop.locator('.tab-button--active[data-view="overview"]').waitFor()
