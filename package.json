@@ -1,0 +1,48 @@
+{
+  "name": "overlook",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local-first creator operations dashboard for Bilibili, Xiaohongshu, and Douyin.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "visual:smoke": "node scripts/visual-smoke.mjs",
+    "verify": "npm run lint && npm run typecheck && npm run build && npm run visual:smoke",
+    "deploy": "gh-pages -d dist"
+  },
+  "homepage": "https://wangjiehu.github.io/Overlook",
+  "dependencies": {
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^0.400.0",
+    "papaparse": "^5.4.1",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "recharts": "^2.12.0",
+    "sonner": "^1.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.60.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^24.12.3",
+    "@types/papaparse": "^5.3.14",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "gh-pages": "^6.1.1",
+    "globals": "^17.6.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.59.2",
+    "vite": "^8.0.12"
+  }
+}
